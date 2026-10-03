@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 
 from webshop.webshop.doctype.webshop_settings.webshop_settings import show_attachments
+from webshop.webshop.store import get_company_store_settings
 
 
 def get_context(context):
@@ -23,7 +24,10 @@ def get_context(context):
 		"Payment Request", {"reference_name": frappe.form_dict.name}, "name"
 	)
 
-	context.enabled_checkout = frappe.get_doc("Webshop Settings").enable_checkout
+	# fork (multi-store): checkout is per selling company's store
+	context.enabled_checkout = get_company_store_settings(
+		frappe.get_doc("Webshop Settings"), context.doc.get("company")
+	).enable_checkout
 
 	default_print_format = frappe.db.get_value(
 		"Property Setter",

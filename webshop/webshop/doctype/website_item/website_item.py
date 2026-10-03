@@ -21,6 +21,7 @@ from webshop.webshop.redisearch_utils import (
 	update_index_for_item,
 )
 from webshop.webshop.shopping_cart.cart import _set_price_list, get_party
+from webshop.webshop.store import get_current_store, is_multi_store
 from webshop.webshop.variant_selector.item_variants_cache import (
 	ItemVariantsCacheManager,
 )
@@ -205,6 +206,14 @@ class WebsiteItem(WebsiteGenerator):
 				self.thumbnail = file_doc.thumbnail_url
 
 	def get_context(self, context):
+		# fork (multi-store): a store's host does not serve another store's product page, and
+		# the HTML cache is keyed by route alone, so it must not hand one store's page to another
+		store = get_current_store()
+		if store and self.webshop_store != store:
+			raise frappe.PageDoesNotExistError
+		if is_multi_store():
+			context.no_cache = 1
+
 		context.show_search = True
 		context.search_link = "/search"
 		context.body_class = "product-page"

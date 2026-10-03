@@ -79,7 +79,7 @@ def get_cart_quotation(doc=None):
 		"shipping_addresses": get_shipping_addresses(party),
 		"billing_addresses": get_billing_addresses(party),
 		"shipping_rules": get_applicable_shipping_rules(party),
-		"cart_settings": frappe.get_cached_doc("Webshop Settings"),
+		"cart_settings": get_shopping_cart_settings(),
 	}
 
 
@@ -118,7 +118,7 @@ def get_billing_addresses(party=None):
 @frappe.whitelist()
 def place_order():
 	quotation = _get_cart_quotation()
-	cart_settings = frappe.get_cached_doc("Webshop Settings")
+	cart_settings = get_shopping_cart_settings()
 	quotation.company = cart_settings.company
 
 	quotation.flags.ignore_permissions = True
@@ -375,15 +375,21 @@ def _get_cart_quotation(party=None):
 	if not party:
 		party = get_party()
 
+	cart_settings = get_shopping_cart_settings()
+	filters = {
+		"party_name": party.name,
+		"contact_email": frappe.session.user,
+		"order_type": "Shopping Cart",
+		"docstatus": 0,
+	}
+	# fork (multi-store): a customer's open cart on one store is not reused on another
+	if cart_settings.get("webshop_store"):
+		filters["company"] = cart_settings.company
+
 	quotation = frappe.get_all(
 		"Quotation",
 		fields=["name"],
-		filters={
-			"party_name": party.name,
-			"contact_email": frappe.session.user,
-			"order_type": "Shopping Cart",
-			"docstatus": 0,
-		},
+		filters=filters,
 		order_by="modified desc",
 		limit_page_length=1,
 	)
@@ -391,11 +397,11 @@ def _get_cart_quotation(party=None):
 	if quotation:
 		qdoc = frappe.get_doc("Quotation", quotation[0].name)
 	else:
-		company = frappe.db.get_single_value("Webshop Settings", "company")
+		company = cart_settings.company
 		qdoc = frappe.get_doc(
 			{
 				"doctype": "Quotation",
-				"naming_series": get_shopping_cart_settings().quotation_series or "QTN-CART-",
+				"naming_series": cart_settings.quotation_series or "QTN-CART-",
 				"quotation_to": party.doctype,
 				"company": company,
 				"order_type": "Shopping Cart",
@@ -452,7 +458,7 @@ def apply_cart_settings(party=None, quotation=None):
 	if not quotation:
 		quotation = _get_cart_quotation(party)
 
-	cart_settings = frappe.get_cached_doc("Webshop Settings")
+	cart_settings = get_shopping_cart_settings()
 
 	with system_permissions():
 		set_price_list_and_rate(quotation, cart_settings)
@@ -545,7 +551,7 @@ def get_party(user=None):
 			party_doctype = contact.links[0].link_doctype
 			party = contact.links[0].link_name
 
-	cart_settings = frappe.get_cached_doc("Webshop Settings")
+	cart_settings = get_shopping_cart_settings()
 
 	debtors_account = ""
 

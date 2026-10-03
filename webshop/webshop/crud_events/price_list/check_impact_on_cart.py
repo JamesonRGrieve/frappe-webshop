@@ -18,3 +18,8 @@ def execute(doc, method=None):
 
 	if currency_changed and affects_cart:
 		validate_cart_settings()
+
+	# fork (multi-store): a store selling in this price list re-checks its own pricing
+	if currency_changed:
+		for store in frappe.get_all("Webshop Store", filters={"price_list": doc.name}, pluck="name"):
+			frappe.get_doc("Webshop Store", store).run_method("validate")

@@ -13,6 +13,7 @@
   "has_variants",
   "variant_of",
   "published",
+  "webshop_store",
   "column_break_3",
   "item_code",
   "item_name",
@@ -197,6 +198,14 @@
    "label": "Published"
   },
   {
+   "description": "Storefront that sells this item. On a Webshop Store's host only its own items are listed, searchable and orderable.",
+   "fieldname": "webshop_store",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Webshop Store",
+   "options": "Webshop Store"
+  },
+  {
    "default": "0",
    "depends_on": "has_variants",
    "fetch_from": "item_code.has_variants",
@@ -347,7 +356,7 @@
  "index_web_pages_for_search": 1,
  "links": [],
  "make_attachments_public": 1,
- "modified": "2024-11-05 13:41:45.347700",
+ "modified": "2026-10-03 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Webshop",
  "name": "Website Item",

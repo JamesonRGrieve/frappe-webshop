@@ -6,6 +6,7 @@ from frappe.utils import flt
 
 from webshop.webshop.doctype.item_review.item_review import get_customer
 from webshop.webshop.shopping_cart.product_info import get_product_info_for_website
+from webshop.webshop.store import get_store_settings
 from webshop.webshop.utils.product import get_non_stock_item_status
 
 
@@ -21,11 +22,14 @@ class ProductQuery:
 	"""
 
 	def __init__(self):
-		self.settings = frappe.get_doc("Webshop Settings")
+		self.settings = get_store_settings(frappe.get_doc("Webshop Settings"))
 		self.page_length = self.settings.products_per_page or 20
 
 		self.or_filters = []
 		self.filters = [["published", "=", 1]]
+		# fork (multi-store): a store's host lists only that store's Website Items
+		if self.settings.get("webshop_store"):
+			self.filters.append(["webshop_store", "=", self.settings.webshop_store])
 		self.fields = [
 			"web_item_name",
 			"name",

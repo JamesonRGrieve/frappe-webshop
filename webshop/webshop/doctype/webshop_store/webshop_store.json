@@ -1,0 +1,206 @@
+{
+ "actions": [],
+ "autoname": "field:store_name",
+ "creation": "2026-10-03 12:00:00.000000",
+ "description": "One storefront on this site: the business (company) that sells, its prices and quotation series. The app that maps public hosts to businesses (webshop_store_resolver hook) picks the store for each request; that request sees only this store's Website Items and quotes under its company. With no store applying, Webshop Settings alone applies (single store).",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "store_name",
+  "enabled",
+  "business_section",
+  "company",
+  "price_list",
+  "column_break_business",
+  "default_customer_group",
+  "quotation_series",
+  "save_quotations_as_draft",
+  "checkout_section",
+  "enable_checkout",
+  "payment_success_url",
+  "payment_gateway_account",
+  "display_section",
+  "show_price",
+  "hide_price_for_guest",
+  "show_stock_availability",
+  "column_break_display",
+  "allow_items_not_in_stock",
+  "show_quantity_in_website",
+  "show_contact_us_button"
+ ],
+ "fields": [
+  {
+   "fieldname": "store_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Store Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "business_section",
+   "fieldtype": "Section Break",
+   "label": "Business"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "description": "Prices will not be shown if Price List is not set",
+   "fieldname": "price_list",
+   "fieldtype": "Link",
+   "label": "Price List",
+   "options": "Price List",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_business",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_customer_group",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "Default Customer Group",
+   "options": "Customer Group",
+   "reqd": 1
+  },
+  {
+   "description": "A Quotation naming series, e.g. QTN-CART-.",
+   "fieldname": "quotation_series",
+   "fieldtype": "Data",
+   "label": "Quotation Series",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "save_quotations_as_draft",
+   "fieldtype": "Check",
+   "label": "Save Quotations as Draft"
+  },
+  {
+   "fieldname": "checkout_section",
+   "fieldtype": "Section Break",
+   "label": "Checkout"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_checkout",
+   "fieldtype": "Check",
+   "label": "Enable Checkout"
+  },
+  {
+   "default": "Orders",
+   "depends_on": "enable_checkout",
+   "description": "After payment completion redirect user to selected page.",
+   "fieldname": "payment_success_url",
+   "fieldtype": "Select",
+   "label": "Payment Success Url",
+   "mandatory_depends_on": "enable_checkout",
+   "options": "\nOrders\nInvoices\nMy Account"
+  },
+  {
+   "depends_on": "enable_checkout",
+   "fieldname": "payment_gateway_account",
+   "fieldtype": "Link",
+   "label": "Payment Gateway Account",
+   "mandatory_depends_on": "enable_checkout",
+   "options": "Payment Gateway Account"
+  },
+  {
+   "fieldname": "display_section",
+   "fieldtype": "Section Break",
+   "label": "Display"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_price",
+   "fieldtype": "Check",
+   "label": "Show Price"
+  },
+  {
+   "default": "0",
+   "depends_on": "show_price",
+   "fieldname": "hide_price_for_guest",
+   "fieldtype": "Check",
+   "label": "Hide Price for Guest"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_stock_availability",
+   "fieldtype": "Check",
+   "label": "Show Stock Availability"
+  },
+  {
+   "fieldname": "column_break_display",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_items_not_in_stock",
+   "fieldtype": "Check",
+   "label": "Allow items not in stock to be added to cart"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_quantity_in_website",
+   "fieldtype": "Check",
+   "label": "Show Stock Quantity"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_contact_us_button",
+   "fieldtype": "Check",
+   "label": "Show Contact Us Button"
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Webshop",
+ "name": "Webshop Store",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Website Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

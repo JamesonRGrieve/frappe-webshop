@@ -12,6 +12,7 @@ from webshop.webshop.redisearch_utils import (
 	get_indexable_web_fields,
 	is_search_module_loaded,
 )
+from webshop.webshop.store import get_store_settings
 
 
 class ShoppingCartSetupError(frappe.ValidationError):
@@ -163,7 +164,8 @@ def validate_cart_settings(doc=None, method=None):
 
 
 def get_shopping_cart_settings():
-	return frappe.get_cached_doc("Webshop Settings")
+	# fork (multi-store): a request on a Webshop Store's host sees that store's business fields
+	return get_store_settings(frappe.get_cached_doc("Webshop Settings"))
 
 
 @frappe.whitelist(allow_guest=True)

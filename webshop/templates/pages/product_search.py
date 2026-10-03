@@ -15,6 +15,7 @@ from webshop.webshop.redisearch_utils import (
 	is_redisearch_enabled,
 )
 from webshop.webshop.shopping_cart.product_info import set_product_info_for_website
+from webshop.webshop.store import get_current_store
 
 no_cache = 1
 
@@ -46,6 +47,11 @@ def get_product_data(search=None, start=0, limit=12):
 		WHERE published = 1
 		"""
 
+	# fork (multi-store): on a store's host, search only that store's items
+	store = get_current_store()
+	if store:
+		query += " and webshop_store = %(store)s"
+
 	# search term condition
 	if search:
 		query += """ and (item_name like %(search)s
@@ -60,7 +66,7 @@ def get_product_data(search=None, start=0, limit=12):
 		cint(start),
 	)
 
-	return frappe.db.sql(query, {"search": search}, as_dict=1)  # nosemgrep
+	return frappe.db.sql(query, {"search": search, "store": store}, as_dict=1)  # nosemgrep
 
 
 @frappe.whitelist(allow_guest=True)
@@ -110,6 +116,13 @@ def product_search(query, limit=10, fuzzy_search=True):
 	results = redisearch.search(q)
 
 	search_results["results"] = list(map(convert_to_dict, results.docs))
+
+	# fork (multi-store): the index spans every store; keep only this store's items
+	store = get_current_store()
+	if store:
+		store_items = set(frappe.get_all("Website Item", filters={"webshop_store": store}, pluck="name"))
+		search_results["results"] = [r for r in search_results["results"] if r.get("name") in store_items]
+
 	search_results["results"] = sorted(
 		search_results["results"], key=lambda k: frappe.utils.cint(k["ranking"]), reverse=True
 	)

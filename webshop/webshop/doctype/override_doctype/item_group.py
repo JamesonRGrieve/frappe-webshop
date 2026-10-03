@@ -8,6 +8,7 @@ from frappe.website.utils import clear_cache
 from frappe.website.website_generator import WebsiteGenerator
 
 from webshop.webshop.product_data_engine.filters import ProductFiltersBuilder
+from webshop.webshop.store import is_multi_store
 
 
 class WebshopItemGroup(ItemGroup, WebsiteGenerator):
@@ -50,6 +51,9 @@ class WebshopItemGroup(ItemGroup, WebsiteGenerator):
 		super().on_trash()
 
 	def get_context(self, context):
+		# fork (multi-store): listings differ per store but the HTML cache is keyed by route
+		if is_multi_store():
+			context.no_cache = 1
 		context.show_search = True
 		context.body_class = "product-page"
 		context.page_length = cint(frappe.db.get_single_value("Webshop Settings", "products_per_page")) or 6

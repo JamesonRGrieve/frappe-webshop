@@ -4,6 +4,8 @@ from erpnext.accounts.doctype.payment_request.payment_request import (
 )
 from frappe.utils import get_url
 
+from webshop.webshop.store import get_company_store_settings
+
 
 class PaymentRequest(OriginalPaymentRequest):
 	def on_payment_authorized(self, status=None):
@@ -19,7 +21,8 @@ class PaymentRequest(OriginalPaymentRequest):
 		if frappe.local.session.user == "Guest":
 			return
 
-		cart_settings = frappe.get_doc("Webshop Settings")
+		# fork (multi-store): the selling company's store decides where a paid customer lands
+		cart_settings = get_company_store_settings(frappe.get_doc("Webshop Settings"), self.company)
 
 		if not cart_settings.enabled:
 			return
@@ -45,6 +48,7 @@ class PaymentRequest(OriginalPaymentRequest):
 		if args.order_type != "Shopping Cart":
 			return super().get_gateway_details(args)
 
-		cart_settings = frappe.get_doc("Webshop Settings")
+		# fork (multi-store): each selling company's store has its own gateway account
+		cart_settings = get_company_store_settings(frappe.get_doc("Webshop Settings"), args.get("company"))
 		gateway_account = cart_settings.payment_gateway_account
 		return super().get_payment_gateway_account(gateway_account)
