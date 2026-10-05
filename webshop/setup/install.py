@@ -3,6 +3,7 @@ import frappe
 from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
+from webshop.webshop.store import add_order_store_fields
 from webshop.webshop.utils.setup import has_ecommerce_fields
 
 
@@ -12,6 +13,7 @@ def after_install():
 	drop_ecommerce_settings()
 	remove_ecommerce_settings_doctype()
 	add_custom_fields()
+	add_order_store_fields()  # fork (multi-store)
 	navbar_add_products_link()
 	say_thanks()
 

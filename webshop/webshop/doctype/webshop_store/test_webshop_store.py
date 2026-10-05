@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Webshop Store (fork) against a real test site: the settings overlay, store lookup by
-company, validation, and unchanged upstream behaviour when no store resolver applies.
+"""Webshop Store (fork) against a real test site: the settings overlay, store lookup from the
+order a document belongs to (several stores may share a company), the store carried from cart
+Quotation to Sales Order, and unchanged upstream behaviour when no store resolver applies.
 Host → store resolution is exercised end-to-end by frappe-public-site-router's tests,
 the app that implements the webshop_store_resolver hook."""
 
@@ -9,8 +10,8 @@ from frappe.tests.utils import FrappeTestCase
 
 from webshop.webshop.doctype.webshop_settings.webshop_settings import get_shopping_cart_settings
 from webshop.webshop.store import (
-	get_company_store_settings,
 	get_current_store,
+	get_document_store_settings,
 	is_multi_store,
 	overlay_store,
 )
@@ -70,15 +71,34 @@ class TestWebshopStore(FrappeTestCase):
 		overlay_store(frappe.get_cached_doc("Webshop Settings"), self.store)
 		self.assertEqual(frappe.get_cached_doc("Webshop Settings").company, "_Test Company")
 
-	def test_company_store_settings(self):
-		base = frappe.get_doc("Webshop Settings")
-		self.assertEqual(get_company_store_settings(base, "_Test Company 1").webshop_store, HUB)
-		self.assertIs(get_company_store_settings(base, "_Test Company 2"), base)
+	def make_store_quotation(self, store):
+		from erpnext.selling.doctype.quotation.test_quotation import make_quotation
 
-	def test_disabled_store_is_not_used_by_company(self):
+		quotation = make_quotation(company="_Test Company", do_not_submit=True)
+		quotation.webshop_store = store
+		quotation.insert(ignore_permissions=True) if quotation.is_new() else quotation.save()
+		return quotation
+
+	def test_document_store_settings(self):
+		base = frappe.get_doc("Webshop Settings")
+		quotation = self.make_store_quotation(HUB)
+		self.assertEqual(get_document_store_settings(base, "Quotation", quotation.name).webshop_store, HUB)
+		self.assertIs(get_document_store_settings(base, "Sales Invoice", quotation.name), base)
+		quotation.db_set("webshop_store", None)
+		self.assertIs(get_document_store_settings(base, "Quotation", quotation.name), base)
+
+	def test_disabled_store_is_not_used_for_documents(self):
+		quotation = self.make_store_quotation(HUB)
 		frappe.db.set_value("Webshop Store", HUB, "enabled", 0)
 		base = frappe.get_doc("Webshop Settings")
-		self.assertIs(get_company_store_settings(base, "_Test Company 1"), base)
+		self.assertIs(get_document_store_settings(base, "Quotation", quotation.name), base)
+
+	def test_store_is_carried_to_sales_order(self):
+		from erpnext.selling.doctype.quotation.quotation import make_sales_order
+
+		quotation = self.make_store_quotation(HUB)
+		quotation.submit()
+		self.assertEqual(make_sales_order(quotation.name).webshop_store, HUB)
 
 	def test_no_request_means_upstream_settings(self):
 		frappe.local.request = None
@@ -92,6 +112,12 @@ class TestWebshopStore(FrappeTestCase):
 		frappe.db.set_value("Webshop Store", HUB, "enabled", 0)
 		self.assertFalse(is_multi_store())
 
-	def test_one_store_per_company(self):
-		with self.assertRaises(frappe.ValidationError):
-			make_store("_Test Second Hub Store", "_Test Company 1", "_Test Price List")
+	def test_several_stores_per_company(self):
+		# e.g. Stifle Manufacturing and Stifle Apiary both sell as one company
+		second = make_store("_Test Second Hub Store", "_Test Company 1", "_Test Price List")
+		self.assertEqual(second.company, self.store.company)
+		base = frappe.get_doc("Webshop Settings")
+		quotation = self.make_store_quotation(second.name)
+		self.assertEqual(
+			get_document_store_settings(base, "Quotation", quotation.name).webshop_store, second.name
+		)

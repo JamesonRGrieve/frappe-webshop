@@ -120,6 +120,8 @@ def place_order():
 	quotation = _get_cart_quotation()
 	cart_settings = get_shopping_cart_settings()
 	quotation.company = cart_settings.company
+	# fork (multi-store): the store taking the order, carried to the Sales Order
+	quotation.webshop_store = cart_settings.get("webshop_store")
 
 	quotation.flags.ignore_permissions = True
 	with system_permissions():
@@ -384,7 +386,7 @@ def _get_cart_quotation(party=None):
 	}
 	# fork (multi-store): a customer's open cart on one store is not reused on another
 	if cart_settings.get("webshop_store"):
-		filters["company"] = cart_settings.company
+		filters["webshop_store"] = cart_settings.webshop_store
 
 	quotation = frappe.get_all(
 		"Quotation",
@@ -404,6 +406,7 @@ def _get_cart_quotation(party=None):
 				"naming_series": cart_settings.quotation_series or "QTN-CART-",
 				"quotation_to": party.doctype,
 				"company": company,
+				"webshop_store": cart_settings.get("webshop_store"),  # fork (multi-store)
 				"order_type": "Shopping Cart",
 				"status": "Draft",
 				"docstatus": 0,
