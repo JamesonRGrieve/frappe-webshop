@@ -68,6 +68,10 @@ doc_events = {
 			"webshop.webshop.crud_events.tax_rule.validate_use_for_cart.execute",
 		],
 	},
+	# fork (multi-store): coupon codes are unique per store, not site-wide
+	"Coupon Code": {
+		"validate": ["webshop.webshop.crud_events.coupon_code.validate_store_unique.execute"],
+	},
 }
 
 has_website_permission = {

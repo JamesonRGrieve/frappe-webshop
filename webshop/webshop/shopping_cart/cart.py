@@ -16,6 +16,7 @@ from frappe.utils.nestedset import get_root_of
 from webshop.webshop.doctype.webshop_settings.webshop_settings import (
 	get_shopping_cart_settings,
 )
+from webshop.webshop.store import coupon_store_filters
 from webshop.webshop.utils.product import get_web_item_qty_in_stock
 
 
@@ -769,7 +770,12 @@ def apply_coupon_code(applied_code, applied_referral_sales_partner):
 	if not applied_code:
 		frappe.throw(_("Please enter a coupon code"))
 
-	coupon_list = frappe.get_all("Coupon Code", filters={"coupon_code": applied_code})
+	# fork (multi-store): codes are unique per store; a cart applies only its store's codes and codes with no store
+	coupon_list = frappe.get_all(
+		"Coupon Code",
+		filters={"coupon_code": applied_code},
+		or_filters=coupon_store_filters(get_shopping_cart_settings().get("webshop_store")),
+	)
 	if not coupon_list:
 		frappe.throw(_("Please enter a valid coupon code"))
 

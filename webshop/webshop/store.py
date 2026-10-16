@@ -11,7 +11,10 @@ this request, nothing is overlaid and Webshop Settings applies exactly as upstre
 
 Cart quotations record their store (``webshop_store`` on Quotation, carried to the Sales Order),
 so documents handled away from the store's host (order pages, payment callbacks) find their store
-from the document, never from its company."""
+from the document, never from its company.
+
+Coupon codes are unique per store (``webshop_store`` on Coupon Code; empty = every store), so
+separate businesses can each run e.g. ``SAVE10``; a cart applies only its own store's codes."""
 
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
@@ -26,6 +29,16 @@ ORDER_STORE_FIELD = {
 	"description": "The webshop storefront this order was placed through.",
 }
 ORDER_DOCTYPES = ("Quotation", "Sales Order")
+
+COUPON_STORE_FIELD = {
+	"fieldname": "webshop_store",
+	"fieldtype": "Link",
+	"options": "Webshop Store",
+	"label": "Webshop Store",
+	"insert_after": "coupon_code",
+	"description": "The storefront this code can be applied in. Leave empty for every store.",
+}
+COUPON_TABLE = "tabCoupon Code"
 
 STORE_FIELDS = (
 	"company",
@@ -93,3 +106,33 @@ def get_document_store_settings(settings, doctype, name):
 def add_order_store_fields():
 	"""The ``webshop_store`` link on Quotation and Sales Order (install + patch)."""
 	create_custom_fields({doctype: [ORDER_STORE_FIELD] for doctype in ORDER_DOCTYPES})
+
+
+def coupon_store_filters(store):
+	"""``or_filters`` matching the Coupon Codes usable in ``store``: its own codes and codes with no
+	store, which apply in every store. With no store, only codes with no store."""
+	or_filters = [["webshop_store", "is", "not set"]]
+	if store:
+		or_filters.append(["webshop_store", "=", store])
+	return or_filters
+
+
+def scope_coupon_codes_to_stores():
+	"""Make coupon codes unique per store instead of site-wide (install + patch; idempotent).
+
+	Adds the ``webshop_store`` link on Coupon Code, overrides ERPNext's ``unique`` on
+	``coupon_code`` and drops its database unique index. Uniqueness per store is then enforced by
+	``crud_events.coupon_code.validate_store_unique``. ``coupon_name`` (the record name) stays unique."""
+	create_custom_fields({"Coupon Code": [COUPON_STORE_FIELD]})
+	frappe.make_property_setter(
+		{
+			"doctype": "Coupon Code",
+			"doctype_or_field": "DocField",
+			"fieldname": "coupon_code",
+			"property": "unique",
+			"value": 0,
+			"property_type": "Check",
+		}
+	)
+	while index := frappe.db.get_column_index(COUPON_TABLE, "coupon_code", unique=True):
+		frappe.db.sql_ddl(f"ALTER TABLE `{COUPON_TABLE}` DROP INDEX `{index.Key_name}`")

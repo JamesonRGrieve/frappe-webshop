@@ -31,13 +31,22 @@ stores per site**.
   return the overlaid copy for the request / for a company. No resolver, no request, or no store →
   Webshop Settings unchanged (exact upstream behaviour). `is_multi_store()` = any enabled store.
 - **`Website Item.webshop_store`** (new Link field): which store sells the item.
+- **Store-scoped coupon codes.** `Coupon Code.webshop_store` (custom Link field, optional; empty =
+  every store) makes `coupon_code` unique **per store** instead of site-wide.
+  `store.scope_coupon_codes_to_stores()` (after_install + patch `scope_coupon_codes_to_stores`,
+  idempotent) adds the field, a Property Setter `unique=0` on `coupon_code`, and drops ERPNext's DB
+  unique index on it. `crud_events/coupon_code/validate_store_unique` (Coupon Code `validate`)
+  enforces (coupon_code, webshop_store) uniqueness, raising `frappe.UniqueValidationError`; a code
+  with no store clashes with the same code on any store. `coupon_name` (the record name) stays
+  globally unique, so per-store duplicates need distinct names (the importer uses `<code> - <ABBR>`).
+  `store.coupon_store_filters(store)` = the codes a store's cart may apply (its own + store-less).
 
 ## Where it diverges from upstream (in place, guarded, `# fork (multi-store)` comments)
 
 | Upstream site | Change |
 |---|---|
 | `webshop_settings.get_shopping_cart_settings()` | returns `get_store_settings(...)` — the single seam every cart path reads |
-| `shopping_cart/cart.py` | `get_cart_quotation`, `place_order`, `apply_cart_settings`, `get_party` read through `get_shopping_cart_settings()`; `_get_cart_quotation` scopes the reused draft cart to the store's company and creates new carts with the store's company/series |
+| `shopping_cart/cart.py` | `get_cart_quotation`, `place_order`, `apply_cart_settings`, `get_party` read through `get_shopping_cart_settings()`; `_get_cart_quotation` scopes the reused draft cart to the store's company and creates new carts with the store's company/series; `apply_coupon_code` looks codes up among the cart's store's and store-less codes only (no store → store-less only, i.e. upstream on a single-store site) |
 | `product_data_engine/query.py` `ProductQuery.__init__` | store-overlaid settings + `webshop_store` filter |
 | `templates/pages/product_search.py` | SQL search and Redisearch results filtered to the store |
 | `website_item.WebsiteItem.get_context` | another store's product → `PageDoesNotExistError`; multi-store → `no_cache` |
@@ -47,6 +56,7 @@ stores per site**.
 | `override_doctype/payment_request` | success URL + gateway account from the selling company's store |
 | `templates/pages/order.py` | `enabled_checkout` from the order company's store |
 | `website_item.json` | `webshop_store` field (+ `modified` bump so migrate syncs it) |
+| ERPNext `Coupon Code` (not edited; customised from here) | `webshop_store` custom field, `coupon_code` unique → per-store (Property Setter + dropped index + validate hook) |
 
 **Invariant:** Frappe's rendered-page cache is keyed by route only (`frappe.website.utils.cache_html`),
 so any page whose content depends on the store must be `no_cache` in multi-store mode, or one
@@ -55,5 +65,5 @@ store's HTML is served on another store's host.
 ## Testing
 
 `bench --site <site> run-tests --app webshop --module webshop.webshop.doctype.webshop_store.test_webshop_store`
-(real DB, ERPNext test fixtures). Host → store end-to-end tests live in frappe-public-site-router.
+(real DB, ERPNext test fixtures); store-scoped coupons: `...webshop_store.test_coupon_code_store`. Host → store end-to-end tests live in frappe-public-site-router.
 Also run upstream's suite to prove no regression with no stores defined.
