@@ -63,6 +63,22 @@ stores per site**.
     rule currency = document currency. The largest of several is given (never summed).
     `WebshopShippingRule.add_shipping_rule_to_tax_table` writes the charge row already discounted, so
     every total (cart, Quotation, Sales Order, Sales Invoice) carries it.
+  - `rule_limits` (card 407; patch `add_rule_limits`, the same `add_discount_limit_fields`): Pricing Rule
+    eligibility — `eligible_customers` + `eligible_customer_groups` (a segment: listed customers, or customers
+    of a listed group or a group under one), `excluded_customer_groups` (child `Webshop Discount Customer
+    Group`), `new_customers_only`, `minimum_customer_orders` (orders counted as `coupon_limits` counts uses,
+    `customer_uses(customer, None)`; an invoice's own order isn't an earlier one; Customer locked on submit) —
+    and discount limits on price rules: `maximum_discount_amount` (all its lines together, or its transaction
+    discount), `spread_discount_amount` (once, across its lines by amount), `maximum_discounted_qty` +
+    `discounted_qty_order` (Cheapest First | Dearest First | Each Line), `fixed_price_set_qty|price|order|
+    repeat`. A spread amount or sets zero the rule's own discount (ERPNext takes it off each unit and refuses a
+    negative total before the hook runs). Enforced on `validate` of Quotation, Sales Order and Sales Invoice
+    after ERPNext's pricing (which re-prices on every validate): an ineligible coupon rule refuses the code
+    (`CouponNotEligibleError`, the cart too); an ineligible automatic rule is taken off (its line discount,
+    others on the line reapplied with `apply_price_discount_rule`; its free items; its transaction discount);
+    limits rewrite each line's per-unit `discount_amount` (rounded down) and the totals and payment schedule
+    are recalculated. Applied rules are found as ERPNext selects them (`applied`: lines' `pricing_rules`,
+    transaction rules via `get_other_conditions`), shared with `shipping`.
 
 ## Where it diverges from upstream (in place, guarded, `# fork (multi-store)` / `# fork (discount limits)` comments)
 
@@ -80,7 +96,7 @@ stores per site**.
 | `templates/pages/order.py` | `enabled_checkout` from the order company's store |
 | `website_item.json` | `webshop_store` field (+ `modified` bump so migrate syncs it) |
 | ERPNext `Coupon Code` (not edited; customised from here) | `webshop_store` custom field, `coupon_code` unique → per-store (Property Setter + dropped index + validate hook); eligibility + per-customer limit fields, eligible emails normalised on validate |
-| ERPNext `Pricing Rule` (not edited; customised from here) | per-customer limit + shipping discount fields, validated (`crud_events/pricing_rule`) |
+| ERPNext `Pricing Rule` (not edited; customised from here) | per-customer limit, shipping discount, eligibility and discount-limit fields, validated (`crud_events/pricing_rule`); enforced on selling documents (`crud_events/sales_document/enforce_rule_limits`) |
 | ERPNext `Shipping Rule` (not edited; `override_doctype_class`) | `override_doctype/shipping_rule.WebshopShippingRule`: charge row less the shipping discount |
 | `hooks.py` | the overrides and `doc_events` above (Quotation, Sales Order, Sales Invoice, Pricing Rule, Coupon Code) |
 
@@ -92,7 +108,8 @@ store's HTML is served on another store's host.
 
 `bench --site <site> run-tests --app webshop --module webshop.webshop.doctype.webshop_store.test_webshop_store`
 (real DB, ERPNext test fixtures); store-scoped coupons: `...webshop_store.test_coupon_code_store`;
-discount limits: `webshop.webshop.discounts.test_coupon_limits`, `...discounts.test_shipping_discounts`.
+discount limits: `webshop.webshop.discounts.test_coupon_limits`, `...discounts.test_shipping_discounts`,
+`...discounts.test_rule_limits`.
 Host → store end-to-end tests live in frappe-public-site-router.
 Also run upstream's suite to prove no regression with no stores defined. ERPNext's test bootstrap needs a
 fresh site (`bench new-site … --install-app erpnext --install-app payments --install-app webshop`, no setup

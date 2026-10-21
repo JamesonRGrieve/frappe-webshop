@@ -8,3 +8,4 @@ webshop.patches.clear_cache_for_item_group_route
 webshop.patches.add_webshop_store_to_orders
 webshop.patches.scope_coupon_codes_to_stores
 webshop.patches.add_discount_limits
+webshop.patches.add_rule_limits

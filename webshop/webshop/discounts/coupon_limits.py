@@ -119,29 +119,34 @@ def check_limit(doc, customer, limit, holder, codes):
 
 def made_from_order_with(doc, codes):
 	"""Whether ``doc`` is a Sales Invoice made from a submitted Sales Order with one of ``codes``."""
+	return bool(source_orders(doc, codes))
+
+
+def source_orders(doc, codes=None):
+	"""The submitted Sales Orders (with one of ``codes``; None: any) a Sales Invoice ``doc`` was made from."""
 	if doc.doctype != "Sales Invoice":
-		return False
+		return set()
 	orders = {item.sales_order for item in doc.get("items") or [] if item.get("sales_order")}
-	return bool(orders) and bool(orders_with(orders, codes))
+	return orders_with(orders, codes) if orders else set()
 
 
 def orders_with(orders, codes):
-	return set(
-		frappe.get_all(
-			"Sales Order",
-			filters={"name": ["in", list(orders)], "docstatus": 1, "coupon_code": ["in", codes]},
-			pluck="name",
-		)
-	)
+	"""Of ``orders``, the submitted ones with one of ``codes`` (None: any or no code)."""
+	filters = {"name": ["in", list(orders)], "docstatus": 1}
+	if codes is not None:
+		filters["coupon_code"] = ["in", codes]
+	return set(frappe.get_all("Sales Order", filters=filters, pluck="name"))
 
 
 def customer_uses(customer, codes, exclude=None):
-	"""How many times ``customer`` has used any of ``codes``: their submitted Sales Orders with one, and their
-	submitted Sales Invoices (not returns) with one not made from such an order. ``exclude`` (the document being
-	validated) is never counted."""
+	"""How many times ``customer`` has used any of ``codes`` (None: how many orders they have placed): their
+	submitted Sales Orders with one, and their submitted Sales Invoices (not returns) with one not made from such
+	an order. ``exclude`` (the document being validated) is never counted."""
 	found = {}
 	for doctype in USE_DOCTYPES:
-		filters = {"docstatus": 1, "customer": customer, "coupon_code": ["in", codes]}
+		filters = {"docstatus": 1, "customer": customer}
+		if codes is not None:
+			filters["coupon_code"] = ["in", codes]
 		if doctype == "Sales Invoice":
 			filters["is_return"] = 0
 		if exclude is not None and exclude.doctype == doctype and not exclude.is_new():

@@ -19,17 +19,13 @@ they never add up.
 webshop cart's, and every Quotation, Sales Order and Sales Invoice."""
 
 import frappe
-from erpnext.accounts.doctype.pricing_rule.utils import (
-	filter_pricing_rule_based_on_condition,
-	filter_pricing_rules_for_qty_amount,
-	get_applied_pricing_rules,
-	get_other_conditions,
-)
 from frappe.utils import flt
 from frappe.utils.nestedset import get_descendants_of
 
+from webshop.webshop.discounts.applied import item_rule_names, transaction_rules, with_its_code
 from webshop.webshop.discounts.fields import AMOUNT, FREE_SHIPPING, PERCENTAGE
 
+SHIPPING_DISCOUNT_SET = "ifnull(`tabPricing Rule`.shipping_discount, '') != ''"
 # Shipping Rule.apply converts its charge to the document's currency at this precision; so does charge_without.
 CONVERTED_PRECISION = 2
 
@@ -49,12 +45,7 @@ def applicable_rules(doc):
 	"""The enabled Pricing Rules with a shipping discount ERPNext's pricing applies to ``doc``."""
 	if not frappe.db.exists("Pricing Rule", {"shipping_discount": ["is", "set"], "disable": 0}):
 		return []
-	names = [
-		name
-		for item in doc.get("items") or []
-		for name in get_applied_pricing_rules(item.get("pricing_rules"))
-	]
-	names += transaction_rules(doc)
+	names = [*item_rule_names(doc), *transaction_rules(doc, SHIPPING_DISCOUNT_SET)]
 	rules = [frappe.get_cached_doc("Pricing Rule", name) for name in dict.fromkeys(names)]
 	return [
 		rule
@@ -64,32 +55,6 @@ def applicable_rules(doc):
 		and (not rule.currency or rule.currency == doc.currency)
 		and with_its_code(rule, doc)
 	]
-
-
-def transaction_rules(doc):
-	"""The transaction rules with a shipping discount whose conditions ``doc`` meets, as ERPNext selects
-	transaction rules (``apply_pricing_rule_on_transaction``)."""
-	values = {}
-	conditions = get_other_conditions(
-		"`tabPricing Rule`.apply_on = 'Transaction' and ifnull(`tabPricing Rule`.shipping_discount, '') != ''",
-		values,
-		doc,
-	)
-	rules = frappe.db.sql(
-		f"select `tabPricing Rule`.* from `tabPricing Rule` where {conditions} and `tabPricing Rule`.disable = 0",
-		values,
-		as_dict=True,
-	)
-	rules = filter_pricing_rules_for_qty_amount(doc.total_qty, doc.total, rules)
-	return [rule.name for rule in filter_pricing_rule_based_on_condition(rules, doc)]
-
-
-def with_its_code(rule, doc):
-	"""A coupon code's rule applies only with one of its codes."""
-	if not rule.coupon_code_based:
-		return True
-	code = doc.get("coupon_code")
-	return bool(code) and frappe.db.get_value("Coupon Code", code, "pricing_rule") == rule.name
 
 
 def discount_off(rule, shipping_rule, doc, charge):

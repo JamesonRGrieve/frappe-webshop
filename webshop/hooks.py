@@ -62,14 +62,23 @@ doc_events = {
 			"webshop.webshop.crud_events.quotation.validate_shopping_cart_items.execute",
 			# fork (discount limits): coupon eligibility and per-customer limits
 			"webshop.webshop.crud_events.sales_document.enforce_coupon_limits.execute",
+			# fork (rule limits): rule eligibility and discount limits
+			"webshop.webshop.crud_events.sales_document.enforce_rule_limits.execute",
 		],
 	},
-	# fork (discount limits): coupon eligibility and per-customer limits
+	# fork (discount limits): coupon eligibility and per-customer limits; fork (rule limits): rule eligibility
+	# and discount limits
 	"Sales Order": {
-		"validate": ["webshop.webshop.crud_events.sales_document.enforce_coupon_limits.execute"],
+		"validate": [
+			"webshop.webshop.crud_events.sales_document.enforce_coupon_limits.execute",
+			"webshop.webshop.crud_events.sales_document.enforce_rule_limits.execute",
+		],
 	},
 	"Sales Invoice": {
-		"validate": ["webshop.webshop.crud_events.sales_document.enforce_coupon_limits.execute"],
+		"validate": [
+			"webshop.webshop.crud_events.sales_document.enforce_coupon_limits.execute",
+			"webshop.webshop.crud_events.sales_document.enforce_rule_limits.execute",
+		],
 	},
 	"Pricing Rule": {
 		"validate": ["webshop.webshop.crud_events.pricing_rule.validate_discount_limits.execute"],
