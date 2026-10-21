@@ -3,6 +3,7 @@ import frappe
 from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
+from webshop.webshop.discounts.fields import add_discount_limit_fields
 from webshop.webshop.store import add_order_store_fields, scope_coupon_codes_to_stores
 from webshop.webshop.utils.setup import has_ecommerce_fields
 
@@ -15,6 +16,7 @@ def after_install():
 	add_custom_fields()
 	add_order_store_fields()  # fork (multi-store)
 	scope_coupon_codes_to_stores()  # fork (multi-store)
+	add_discount_limit_fields()  # fork (discount limits)
 	navbar_add_products_link()
 	say_thanks()
 

@@ -41,7 +41,48 @@ def make_coupon(code, store=None, name=None):
 	).insert()
 
 
-class TestCouponCodeStore(FrappeTestCase):
+def make_cart(store):
+	"""A cart of CART_USER's on ``store``'s host (None: a site without stores) holding one of its items."""
+	if not frappe.db.get_value(
+		"Item Price", {"price_list": "_Test Price List India", "item_code": "_Test Item"}
+	):
+		frappe.get_doc(
+			{
+				"doctype": "Item Price",
+				"price_list": "_Test Price List India",
+				"item_code": "_Test Item",
+				"price_list_rate": 10,
+			}
+		).insert()
+	web_item = frappe.db.get_value("Website Item", {"item_code": "_Test Item"})
+	if not web_item:
+		web_item = make_website_item(frappe.get_cached_doc("Item", "_Test Item"))[0]
+	frappe.db.set_value("Website Item", web_item, "webshop_store", store)
+	if not frappe.db.exists("User", CART_USER):
+		frappe.get_doc(
+			{
+				"doctype": "User",
+				"user_type": "Website User",
+				"email": CART_USER,
+				"send_welcome_email": 0,
+				"first_name": "Coupon Cart",
+			}
+		).insert(ignore_permissions=True).add_roles("Customer")
+	frappe.set_user(CART_USER)
+	update_cart("_Test Item", 1)
+
+
+def apply_in_store(store, code):
+	"""``code`` applied to CART_USER's cart on ``store``'s host: its quotation."""
+	with patch(STORE_RESOLVERS[0], return_value=store), patch(STORE_RESOLVERS[1], return_value=store):
+		frappe.local.shopping_cart_settings = None
+		make_cart(store)
+		return apply_coupon_code(code, None)
+
+
+class StoreCartTestCase(FrappeTestCase):
+	"""Webshop Settings for _Test Company and two stores on it, every test rolled back."""
+
 	def setUp(self):
 		frappe.set_user("Administrator")
 		settings = frappe.get_doc("Webshop Settings")
@@ -65,6 +106,8 @@ class TestCouponCodeStore(FrappeTestCase):
 		frappe.clear_document_cache("Webshop Settings", "Webshop Settings")
 		frappe.local.shopping_cart_settings = None
 
+
+class TestCouponCodeStore(StoreCartTestCase):
 	@classmethod
 	def tearDownClass(cls):
 		# the patch tests' DDL commits implicitly, so setUp's stores outlive the rollback
@@ -109,62 +152,26 @@ class TestCouponCodeStore(FrappeTestCase):
 			make_coupon("_TSAVE20", STORE_B, name="_TSAVE10 shared name")
 
 	# the cart
-	def make_cart(self, store):
-		"""A cart on ``store``'s host (None: a site without stores) holding one of its items."""
-		if not frappe.db.get_value(
-			"Item Price", {"price_list": "_Test Price List India", "item_code": "_Test Item"}
-		):
-			frappe.get_doc(
-				{
-					"doctype": "Item Price",
-					"price_list": "_Test Price List India",
-					"item_code": "_Test Item",
-					"price_list_rate": 10,
-				}
-			).insert()
-		web_item = frappe.db.get_value("Website Item", {"item_code": "_Test Item"})
-		if not web_item:
-			web_item = make_website_item(frappe.get_cached_doc("Item", "_Test Item"))[0]
-		frappe.db.set_value("Website Item", web_item, "webshop_store", store)
-		if not frappe.db.exists("User", CART_USER):
-			frappe.get_doc(
-				{
-					"doctype": "User",
-					"user_type": "Website User",
-					"email": CART_USER,
-					"send_welcome_email": 0,
-					"first_name": "Coupon Cart",
-				}
-			).insert(ignore_permissions=True).add_roles("Customer")
-		frappe.set_user(CART_USER)
-		update_cart("_Test Item", 1)
-
-	def apply_in_store(self, store, code):
-		with patch(STORE_RESOLVERS[0], return_value=store), patch(STORE_RESOLVERS[1], return_value=store):
-			frappe.local.shopping_cart_settings = None
-			self.make_cart(store)
-			return apply_coupon_code(code, None)
-
 	def test_cart_applies_its_own_stores_code(self):
 		make_coupon("_TSAVE10", STORE_A)
 		make_coupon("_TSAVE10", STORE_B)
-		self.assertEqual(self.apply_in_store(STORE_B, "_TSAVE10").coupon_code, f"_TSAVE10 - {STORE_B}")
+		self.assertEqual(apply_in_store(STORE_B, "_TSAVE10").coupon_code, f"_TSAVE10 - {STORE_B}")
 
 	def test_cart_rejects_another_stores_code(self):
 		make_coupon("_TSAVE10", STORE_A)
 		with self.assertRaisesRegex(frappe.ValidationError, "Please enter a valid coupon code"):
-			self.apply_in_store(STORE_B, "_TSAVE10")
+			apply_in_store(STORE_B, "_TSAVE10")
 
 	def test_store_less_code_applies_in_every_store(self):
 		make_coupon("_TSAVE10")
-		self.assertEqual(self.apply_in_store(STORE_A, "_TSAVE10").coupon_code, "_TSAVE10")
+		self.assertEqual(apply_in_store(STORE_A, "_TSAVE10").coupon_code, "_TSAVE10")
 		frappe.set_user("Administrator")
-		self.assertEqual(self.apply_in_store(STORE_B, "_TSAVE10").coupon_code, "_TSAVE10")
+		self.assertEqual(apply_in_store(STORE_B, "_TSAVE10").coupon_code, "_TSAVE10")
 
 	def test_cart_without_store_applies_store_less_code(self):
 		# a single-store site: no store resolves, codes have no store — upstream behaviour
 		make_coupon("_TSAVE10")
-		self.assertEqual(self.apply_in_store(None, "_TSAVE10").coupon_code, "_TSAVE10")
+		self.assertEqual(apply_in_store(None, "_TSAVE10").coupon_code, "_TSAVE10")
 
 	def test_referral_sales_partner_still_applies(self):
 		make_coupon("_TSAVE10", STORE_A)
@@ -179,7 +186,7 @@ class TestCouponCodeStore(FrappeTestCase):
 		).insert()
 		with patch(STORE_RESOLVERS[0], return_value=STORE_A), patch(STORE_RESOLVERS[1], return_value=STORE_A):
 			frappe.local.shopping_cart_settings = None
-			self.make_cart(STORE_A)
+			make_cart(STORE_A)
 			quotation = apply_coupon_code("_TSAVE10", "_TREF")
 		self.assertEqual(quotation.referral_sales_partner, partner.name)
 

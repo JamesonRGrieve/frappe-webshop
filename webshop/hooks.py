@@ -30,6 +30,8 @@ override_doctype_class = {
 	"Payment Request": "webshop.webshop.doctype.override_doctype.payment_request.PaymentRequest",
 	"Item Group": "webshop.webshop.doctype.override_doctype.item_group.WebshopItemGroup",
 	"Item": "webshop.webshop.doctype.override_doctype.item.WebshopItem",
+	# fork (discount limits): the charge row less the Pricing Rules' shipping discount
+	"Shipping Rule": "webshop.webshop.doctype.override_doctype.shipping_rule.WebshopShippingRule",
 }
 
 doctype_js = {
@@ -58,7 +60,19 @@ doc_events = {
 	"Quotation": {
 		"validate": [
 			"webshop.webshop.crud_events.quotation.validate_shopping_cart_items.execute",
+			# fork (discount limits): coupon eligibility and per-customer limits
+			"webshop.webshop.crud_events.sales_document.enforce_coupon_limits.execute",
 		],
+	},
+	# fork (discount limits): coupon eligibility and per-customer limits
+	"Sales Order": {
+		"validate": ["webshop.webshop.crud_events.sales_document.enforce_coupon_limits.execute"],
+	},
+	"Sales Invoice": {
+		"validate": ["webshop.webshop.crud_events.sales_document.enforce_coupon_limits.execute"],
+	},
+	"Pricing Rule": {
+		"validate": ["webshop.webshop.crud_events.pricing_rule.validate_discount_limits.execute"],
 	},
 	"Price List": {
 		"validate": ["webshop.webshop.crud_events.price_list.check_impact_on_cart.execute"],
@@ -70,7 +84,11 @@ doc_events = {
 	},
 	# fork (multi-store): coupon codes are unique per store, not site-wide
 	"Coupon Code": {
-		"validate": ["webshop.webshop.crud_events.coupon_code.validate_store_unique.execute"],
+		"validate": [
+			"webshop.webshop.crud_events.coupon_code.validate_store_unique.execute",
+			# fork (discount limits): eligible emails are addresses or patterns
+			"webshop.webshop.crud_events.coupon_code.validate_eligible_emails.execute",
+		],
 	},
 }
 

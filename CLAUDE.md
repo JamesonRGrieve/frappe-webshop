@@ -40,8 +40,31 @@ stores per site**.
   with no store clashes with the same code on any store. `coupon_name` (the record name) stays
   globally unique, so per-store duplicates need distinct names (the importer uses `<code> - <ABBR>`).
   `store.coupon_store_filters(store)` = the codes a store's cart may apply (its own + store-less).
+- **Discount limits** (`webshop/webshop/discounts/`, card 405): what ERPNext's pricing doesn't enforce,
+  so mirrored discounts (frappe-idempotent-importer) keep their source's limits. Fields are custom
+  fields on ERPNext's records (`discounts/fields.py`, after_install + patch `add_discount_limits`,
+  idempotent); child tables are the fork's `Webshop Coupon Customer` / `Webshop Shipping Discount
+  Rule|Zone|Item` doctypes.
+  - `coupon_limits`: Coupon Code `eligible_customers`, `eligible_emails` (one per line, `*` wildcard;
+    matched against the document's `contact_email` and its customer's `email_id`; both lists set → both
+    must hold) and `maximum_use_per_customer`; Pricing Rule `maximum_use_per_customer` (coupon-based rules
+    only: all the rule's codes together). A use = a submitted Sales Order, or a submitted Sales Invoice
+    (not a return) not made from a submitted order with a code of the same limit; cancelled documents
+    don't count. Enforced on `validate` of Quotation (the cart's too), Sales Order and Sales Invoice; on
+    submit the Coupon Code / Pricing Rule row is locked (`for_update`) before counting. No customer (a
+    Quotation to a Lead) + a limit → refused.
+  - `shipping`: Pricing Rule `shipping_discount` (Free Shipping | Percentage | Amount),
+    `shipping_discount_value`, `_cap`, `max_shipping_charge`, limited to `shipping_discount_rules`
+    (Shipping Rules), `_zones` (country, optional state of the shipping address) and `_items` (items +
+    their variants, item groups + subgroups: only the share those items bring = charge less the same
+    Shipping Rule's charge for the other lines alone). A rule gives it exactly when ERPNext applies the
+    rule: listed in an item's `pricing_rules`, or a Transaction rule selected by ERPNext's own
+    `get_other_conditions` + qty/amount + dynamic-condition filters; coupon rules only with their code;
+    rule currency = document currency. The largest of several is given (never summed).
+    `WebshopShippingRule.add_shipping_rule_to_tax_table` writes the charge row already discounted, so
+    every total (cart, Quotation, Sales Order, Sales Invoice) carries it.
 
-## Where it diverges from upstream (in place, guarded, `# fork (multi-store)` comments)
+## Where it diverges from upstream (in place, guarded, `# fork (multi-store)` / `# fork (discount limits)` comments)
 
 | Upstream site | Change |
 |---|---|
@@ -56,7 +79,10 @@ stores per site**.
 | `override_doctype/payment_request` | success URL + gateway account from the selling company's store |
 | `templates/pages/order.py` | `enabled_checkout` from the order company's store |
 | `website_item.json` | `webshop_store` field (+ `modified` bump so migrate syncs it) |
-| ERPNext `Coupon Code` (not edited; customised from here) | `webshop_store` custom field, `coupon_code` unique → per-store (Property Setter + dropped index + validate hook) |
+| ERPNext `Coupon Code` (not edited; customised from here) | `webshop_store` custom field, `coupon_code` unique → per-store (Property Setter + dropped index + validate hook); eligibility + per-customer limit fields, eligible emails normalised on validate |
+| ERPNext `Pricing Rule` (not edited; customised from here) | per-customer limit + shipping discount fields, validated (`crud_events/pricing_rule`) |
+| ERPNext `Shipping Rule` (not edited; `override_doctype_class`) | `override_doctype/shipping_rule.WebshopShippingRule`: charge row less the shipping discount |
+| `hooks.py` | the overrides and `doc_events` above (Quotation, Sales Order, Sales Invoice, Pricing Rule, Coupon Code) |
 
 **Invariant:** Frappe's rendered-page cache is keyed by route only (`frappe.website.utils.cache_html`),
 so any page whose content depends on the store must be `no_cache` in multi-store mode, or one
@@ -65,5 +91,10 @@ store's HTML is served on another store's host.
 ## Testing
 
 `bench --site <site> run-tests --app webshop --module webshop.webshop.doctype.webshop_store.test_webshop_store`
-(real DB, ERPNext test fixtures); store-scoped coupons: `...webshop_store.test_coupon_code_store`. Host → store end-to-end tests live in frappe-public-site-router.
-Also run upstream's suite to prove no regression with no stores defined.
+(real DB, ERPNext test fixtures); store-scoped coupons: `...webshop_store.test_coupon_code_store`;
+discount limits: `webshop.webshop.discounts.test_coupon_limits`, `...discounts.test_shipping_discounts`.
+Host → store end-to-end tests live in frappe-public-site-router.
+Also run upstream's suite to prove no regression with no stores defined. ERPNext's test bootstrap needs a
+fresh site (`bench new-site … --install-app erpnext --install-app payments --install-app webshop`, no setup
+wizard): on a set-up site it fails creating its master data. A bench: frappe-idempotent-importer's
+`tests/e2e/bench.sh` (`WEBSHOP_REPO` = this checkout) stands one up in podman.
