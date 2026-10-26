@@ -10,6 +10,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from webshop.webshop.doctype.webshop_settings.webshop_settings import get_shopping_cart_settings
 from webshop.webshop.store import (
+	apply_store_terms,
 	get_current_store,
 	get_document_store_settings,
 	is_multi_store,
@@ -121,3 +122,31 @@ class TestWebshopStore(FrappeTestCase):
 		self.assertEqual(
 			get_document_store_settings(base, "Quotation", quotation.name).webshop_store, second.name
 		)
+
+
+	def test_store_order_terms_reach_the_sales_order(self):
+		from erpnext.selling.doctype.quotation.quotation import make_sales_order
+
+		self.store.db_set("order_terms", "<p>Ship it USPS.</p>")
+		settings = overlay_store(frappe.get_doc("Webshop Settings"), frappe.get_doc("Webshop Store", HUB))
+		self.assertEqual(settings.order_terms, "<p>Ship it USPS.</p>")
+
+		quotation = self.make_store_quotation(HUB)
+		apply_store_terms(quotation, settings)
+		self.assertEqual(quotation.terms, "<p>Ship it USPS.</p>")
+		quotation.save()
+		quotation.submit()
+		self.assertEqual(make_sales_order(quotation.name).terms, "<p>Ship it USPS.</p>")
+
+	def test_store_order_terms_never_replace_chosen_terms(self):
+		self.store.db_set("order_terms", "<p>Store.</p>")
+		settings = overlay_store(frappe.get_doc("Webshop Settings"), frappe.get_doc("Webshop Store", HUB))
+		quotation = self.make_store_quotation(HUB)
+		quotation.terms = "<p>Chosen.</p>"
+		apply_store_terms(quotation, settings)
+		self.assertEqual(quotation.terms, "<p>Chosen.</p>")
+
+	def test_no_store_terms_leaves_the_quotation_alone(self):
+		quotation = self.make_store_quotation(HUB)
+		apply_store_terms(quotation, frappe.get_doc("Webshop Settings"))
+		self.assertFalse(quotation.get("terms"))

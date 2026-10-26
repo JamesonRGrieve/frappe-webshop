@@ -16,7 +16,7 @@ from frappe.utils.nestedset import get_root_of
 from webshop.webshop.doctype.webshop_settings.webshop_settings import (
 	get_shopping_cart_settings,
 )
-from webshop.webshop.store import coupon_store_filters
+from webshop.webshop.store import apply_store_terms, coupon_store_filters
 from webshop.webshop.utils.product import get_web_item_qty_in_stock
 
 
@@ -123,6 +123,7 @@ def place_order():
 	quotation.company = cart_settings.company
 	# fork (multi-store): the store taking the order, carried to the Sales Order
 	quotation.webshop_store = cart_settings.get("webshop_store")
+	apply_store_terms(quotation, cart_settings)  # fork (multi-store): the store's order terms
 
 	quotation.flags.ignore_permissions = True
 	with system_permissions():
@@ -416,6 +417,7 @@ def _get_cart_quotation(party=None):
 			}
 		)
 
+		apply_store_terms(qdoc, cart_settings)  # fork (multi-store): shown in the cart
 		qdoc.contact_person = frappe.db.get_value("Contact", {"email_id": frappe.session.user})
 		qdoc.contact_email = frappe.session.user
 

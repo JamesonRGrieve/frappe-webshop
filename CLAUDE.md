@@ -20,7 +20,9 @@ stores per site**.
   default_customer_group, quotation_series, save_quotations_as_draft, enable_checkout,
   payment_success_url, payment_gateway_account, show_price, hide_price_for_guest,
   show_stock_availability, allow_items_not_in_stock, show_quantity_in_website,
-  show_contact_us_button). One store per company (orders/payment requests find their store by
+  show_contact_us_button, order_terms). `order_terms` (the store's own text, e.g. how to ship a unit in) is put on the store's cart
+  quotations' `terms` by `store.apply_store_terms()` (new carts and place_order; never over terms already
+  set), so the cart, the quotation, the sales order and the post-checkout order page all show it. One store per company (orders/payment requests find their store by
   company). Validation reuses `WebshopSettings.validate_price_list_exchange_rate` on an overlaid
   copy. Global behaviour (filters, search index, variants, wishlist, reviews, products per page)
   stays in Webshop Settings.

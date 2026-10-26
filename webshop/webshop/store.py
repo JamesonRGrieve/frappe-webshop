@@ -55,6 +55,7 @@ STORE_FIELDS = (
 	"allow_items_not_in_stock",
 	"show_quantity_in_website",
 	"show_contact_us_button",
+	"order_terms",
 )
 
 
@@ -83,6 +84,15 @@ def overlay_store(settings, store):
 		overlaid.set(field, store.get(field))
 	overlaid.webshop_store = store.name
 	return overlaid
+
+
+def apply_store_terms(doc, settings):
+	"""Put the store's order terms (``order_terms``, the store's own text) on a cart quotation that has
+	none, so the cart, the quotation and the sales order made from it carry them. No store or no terms:
+	unchanged."""
+	terms = settings.get("order_terms")
+	if terms and not doc.get("terms"):
+		doc.terms = terms
 
 
 def get_store_settings(settings):

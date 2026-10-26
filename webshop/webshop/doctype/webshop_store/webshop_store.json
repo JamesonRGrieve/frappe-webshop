@@ -19,6 +19,7 @@
   "enable_checkout",
   "payment_success_url",
   "payment_gateway_account",
+  "order_terms",
   "display_section",
   "show_price",
   "hide_price_for_guest",
@@ -120,6 +121,12 @@
    "options": "Payment Gateway Account"
   },
   {
+   "description": "Put on this store's cart quotations and the orders made from them: shown in the cart and on the order page after checkout (e.g. how to ship a unit in for repair).",
+   "fieldname": "order_terms",
+   "fieldtype": "Text Editor",
+   "label": "Order Terms"
+  },
+  {
    "fieldname": "display_section",
    "fieldtype": "Section Break",
    "label": "Display"
@@ -167,7 +174,7 @@
   }
  ],
  "links": [],
- "modified": "2026-10-03 12:00:00.000000",
+ "modified": "2026-10-26 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Webshop",
  "name": "Webshop Store",
