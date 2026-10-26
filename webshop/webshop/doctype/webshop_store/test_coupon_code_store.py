@@ -12,6 +12,10 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from webshop.patches import scope_coupon_codes_to_stores as coupon_patch
+# Imported before any test patches the resolver: Frappe imports doc_event modules lazily, and this one binds
+# get_current_store by name, so a first import inside patch(STORE_RESOLVERS[0]) would keep the mock for good and
+# leak a store into every later test (upstream's cart tests then fail with "not sold in this store").
+from webshop.webshop.crud_events.quotation import validate_shopping_cart_items  # noqa: F401
 from webshop.webshop.doctype.webshop_store.test_webshop_store import make_store
 from webshop.webshop.doctype.website_item.website_item import make_website_item
 from webshop.webshop.shopping_cart.cart import apply_coupon_code, update_cart
