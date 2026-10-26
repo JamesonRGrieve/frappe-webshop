@@ -113,6 +113,10 @@ store's HTML is served on another store's host.
 discount limits: `webshop.webshop.discounts.test_coupon_limits`, `...discounts.test_shipping_discounts`,
 `...discounts.test_rule_limits`.
 Host → store end-to-end tests live in frappe-public-site-router.
+Tests that patch the store resolver patch both names in `STORE_RESOLVERS` (`test_coupon_code_store`), and that
+module imports `crud_events.quotation.validate_shopping_cart_items` before any patch: Frappe imports doc_event
+modules lazily and that one binds `get_current_store` by name, so a first import inside a patch keeps the mock for
+good and leaks a store into every later test (upstream's cart tests then fail "not sold in this store").
 Also run upstream's suite to prove no regression with no stores defined. ERPNext's test bootstrap needs a
 fresh site (`bench new-site … --install-app erpnext --install-app payments --install-app webshop`, no setup
 wizard): on a set-up site it fails creating its master data. A bench: frappe-idempotent-importer's
